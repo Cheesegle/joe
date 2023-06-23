@@ -90,10 +90,11 @@ function draw() {
     socket.emit(eventName, keyState[keyCode]);
   }
 
-  background(0);
   fill(255);
   stroke(0);
-  text("FPS: " + fps.toFixed(2), 10, height - 10);
+
+  push();
+  background(0);
 
   if (playerListOld[playerId]) {
     let lerpPos = playerLerp(playerId);
@@ -168,6 +169,8 @@ function draw() {
     rect(highlight.minX, highlight.minY, highlight.maxX - highlight.minX, highlight.maxY - highlight.minY);
     pop();
   }
+  pop();
+  text("FPS: " + fps.toFixed(2), 10, height - 10);
 }
 
 function mouseWheel(event) {
