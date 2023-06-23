@@ -145,9 +145,8 @@ function draw() {
           ) {
             if (mouseIsPressed === true) {
               socket.emit('click', tile, id);
-            } else {
-              highlight = tile;
             }
+            highlight = tile;
           } else {
             push();
             stroke(156, 39, 176);
