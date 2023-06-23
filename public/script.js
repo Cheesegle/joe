@@ -5,13 +5,13 @@ var playerList = {};
 var playerListOld = {};
 var lastTick = performance.now();
 var zoom = 3000;
-var gameScale = (window.innerWidth + window.innerHeight) / zoom;
+var gameScale = (innerWidth + innerHeight) / zoom;
 var playerId = "";
 var fps = 0;
 
 var mouseXOffset = 0;
 var mouseYOffset = 0;
-var edgeOffset = 400; // Adjust this value to change the distance from the edge for triggering the translation
+var edgeOffset = innerHeight / 4; // Adjust this value to change the distance from the edge for triggering the translation
 
 var cameraX = 0;
 var cameraY = 0;
@@ -79,10 +79,10 @@ function draw() {
     65: 'a',
     83: 's',
     68: 'd',
-    37: 'up',
-    38: 'down',
-    39: 'left',
-    40: 'right'
+    38: 'up',
+    40: 'down',
+    37: 'left',
+    39: 'right'
   };
 
   for (const keyCode in keyEvents) {
@@ -111,8 +111,14 @@ function draw() {
       let lerpPos = playerLerp(id);
       push();
       fill('green');
-      ellipse(lerpPos.x, lerpPos.y, 80, 80);
+      circle(lerpPos.x, lerpPos.y, 80);
       pop();
+      for (const bullet of playerList[id].bullets) {
+        push();
+        fill('green');
+        circle(bullet.x, bullet.y, bullet.radius);
+        pop();
+      }
     }
   }
 
@@ -138,15 +144,14 @@ function draw() {
             mouseY - windowHeight / 2 < tileMaxY
           ) {
             if (mouseIsPressed === true) {
-              socket.emit('remove', tile, id);
+              socket.emit('click', tile, id);
             } else {
               highlight = tile;
             }
           } else {
             push();
             stroke(156, 39, 176);
-            fill(244, 122, 158);
-            noFill();
+            fill(244, 20, 176, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
             strokeWeight(4);
             rect(tile.minX, tile.minY, tile.maxX - tile.minX, tile.maxY - tile.minY);
             pop();
@@ -159,8 +164,7 @@ function draw() {
   if (highlight) {
     push();
     stroke(255);
-    fill(244, 122, 158);
-    noFill();
+    fill(244, 20, 176, (highlight.hp / (highlight.maxX - highlight.minX + highlight.maxY - highlight.minY) * 255));
     strokeWeight(8);
     rect(highlight.minX, highlight.minY, highlight.maxX - highlight.minX, highlight.maxY - highlight.minY);
     pop();
@@ -188,7 +192,8 @@ function mouseWheel(event) {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  gameScale = (window.innerWidth + window.innerHeight) / zoom;
+  gameScale = (innerWidth + innerHeight) / zoom;
+  edgeOffset = innerHeight / 4;
 }
 
 function mouseMoved() {
@@ -223,6 +228,9 @@ socket.on('tick', (playerTickList) => {
 });
 socket.on('remove', (id) => {
   delete mapData[id];
+});
+socket.on('tileupdate', (id, hp) => {
+  mapData[id].hp = hp;
 });
 setInterval(updateFPS, 1000);
 fetchMap();

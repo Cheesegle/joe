@@ -10,6 +10,23 @@ const port = process.env.PORT || 8080;
 
 app.use(express.static('public'));
 
+class Bullet {
+  constructor(x, y, velocityX, velocityY) {
+    this.x = x;
+    this.y = y;
+    this.velocityX = velocityX;
+    this.velocityY = velocityY;
+    this.speed = 20; // Adjust bullet speed as needed
+    this.radius = 15; // Adjust bullet size as needed
+    this.range = 100;
+  }
+
+  updatePosition() {
+    this.x += this.velocityX * this.speed;
+    this.y += this.velocityY * this.speed;
+  }
+}
+
 class Player {
   constructor(x, y) {
     this.x = x;
@@ -20,6 +37,22 @@ class Player {
     this.speed = 15;
     this.acceleration = 0.5;
     this.deceleration = 0.1;
+    this.bullets = [];
+  }
+
+  shootInDirection(directionX, directionY) {
+    // Calculate the magnitude of the direction vector
+    const magnitude = Math.sqrt(directionX ** 2 + directionY ** 2);
+
+    if (magnitude !== 0) {
+      // Normalize the direction vector
+      const normalizedDirectionX = directionX / magnitude;
+      const normalizedDirectionY = directionY / magnitude;
+
+      // Create a new bullet with the normalized direction as its velocity
+      const bullet = new Bullet(this.x, this.y, normalizedDirectionX, normalizedDirectionY);
+      this.bullets.push(bullet);
+    }
   }
 
   updatePosition() {
@@ -61,14 +94,41 @@ tree.load(tiles);
 setInterval(() => {
   for (const id in playerList) {
     const player = playerList[id];
+    updatePlayerShooting(player);
     updatePlayerMovement(player);
     player.updatePosition();
     handleCollision(player);
+    updateBulletPositions(player);
   }
 
   const playerTickList = getPlayerTickList(playerList);
   io.emit('tick', playerTickList);
 }, 1000 / 64);
+
+function updateBulletPositions(player) {
+  for (let i = player.bullets.length - 1; i >= 0; i--) {
+    const bullet = player.bullets[i];
+    bullet.updatePosition();
+
+    bullet.range -= 1;
+
+    if (bullet.range <= 0) {
+      player.bullets.splice(i, 1)
+    }
+  }
+}
+
+function updatePlayerShooting(player) {
+  const diagonalMultiplier = Math.sqrt(0.5); // Adjust the multiplier as needed for bullet speed
+
+  if (player.up) {
+    player.shootInDirection(player.left ? -diagonalMultiplier : player.right ? diagonalMultiplier : 0, -1);
+  } else if (player.down) {
+    player.shootInDirection(player.left ? -diagonalMultiplier : player.right ? diagonalMultiplier : 0, 1);
+  } else {
+    player.shootInDirection(player.left ? -1 : player.right ? 1 : 0, 0);
+  }
+}
 
 function updatePlayerMovement(player) {
   let accelerationX = 0;
@@ -112,8 +172,46 @@ function handleCollision(player) {
     for (const result of results) {
       if (result.type === 'tile') {
         handleTileCollision(player, playerCircle, result);
-      } else if (result.type === 'bullet') {
-        handleBulletCollision(player, playerCircle, result);
+      }
+    }
+  }
+  for (const bullet of player.bullets) {
+    handleBulletCollision(player, bullet);
+  }
+}
+
+function handleBulletCollision(player, bullet) {
+  const bulletCircle = new SAT.Circle(new SAT.Vector(bullet.x, bullet.y), bullet.radius);
+
+  // Check collision with tiles
+  const results = tree.search({
+    minX: bullet.x - bullet.radius + 5,
+    minY: bullet.y - bullet.radius + 5,
+    maxX: bullet.x + bullet.radius + 5,
+    maxY: bullet.y + bullet.radius + 5,
+  });
+
+  if (results.length > 0) {
+    for (const result of results) {
+      if (result.type === 'tile') {
+        const response = new SAT.Response();
+        const collided = SAT.testCirclePolygon(bulletCircle, result.sat, response);
+        if (collided) {
+          // Remove the bullet
+          const bulletIndex = player.bullets.indexOf(bullet);
+          if (bulletIndex !== -1) {
+            player.bullets.splice(bulletIndex, 1);
+          }
+          // Damage the tile for 5 hp
+          result.hp -= 5;
+          io.emit('tileupdate', result.id, result.hp);
+          // Check if the tile's hp is <= 0 and remove it if necessary
+          if (result.hp <= 0) {
+            io.emit('remove', result.id);
+            tree.remove(result, (a, b) => a.minX === b.minX && a.minY === b.minY);
+            delete tiles[result.id];
+          }
+        }
       }
     }
   }
@@ -131,15 +229,6 @@ function handleTileCollision(player, playerCircle, result) {
   }
 }
 
-function handleBulletCollision(player, playerCircle, result) {
-  const response = new SAT.Response();
-  const collided = SAT.pointInCircle(new SAT.Vector(result.x, result.y), playerCircle, response);
-  if (collided) {
-    tree.remove(result);
-    player.hp -= 5;
-  }
-}
-
 function getPlayerTickList(playerList) {
   const playerTickList = {};
   for (const id in playerList) {
@@ -149,6 +238,7 @@ function getPlayerTickList(playerList) {
       y: player.y,
       obj: player.sat,
       hp: player.hp,
+      bullets: player.bullets
     };
   }
   return playerTickList;
@@ -171,10 +261,8 @@ io.on('connection', (socket) => {
     console.log('grrr');
     delete playerList[socket.id];
   });
-  socket.on('remove', (item, id) => {
-    io.emit('remove', id);
-    tree.remove(item, (a, b) => a.minX === b.minX && a.minY === b.minY);
-    delete tiles[id];
+  socket.on('click', (item, id) => {
+    //on tile click
   });
 });
 

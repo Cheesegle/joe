@@ -45,7 +45,8 @@ function generateTiles() {
             minY: y * 80,
             maxX: (x * 80) + tileWidth,
             maxY: (y * 80) + tileHeight,
-            hp: tileWidth + tileHeight
+            hp: tileWidth + tileHeight,
+            id: tiles.length
           });
         } else {
           tiles.push({
@@ -55,7 +56,8 @@ function generateTiles() {
             minY: y * 80,
             maxX: (x * 80) + 80,
             maxY: (y * 80) + 80,
-            hp: 80
+            hp: 160,
+            id: tiles.length
           });
         }
       }
