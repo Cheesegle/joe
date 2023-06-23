@@ -4,7 +4,7 @@ const server = require('http').createServer(app);
 const io = require('socket.io')(server);
 const SAT = require('sat');
 const RBush = require('rbush');
-const world = require('./world')
+const world = require('./world');
 
 const port = process.env.PORT || 8080;
 
@@ -14,106 +14,178 @@ class Player {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.w = false;
-    this.a = false;
-    this.s = false;
-    this.d = false;
+    this.hp = 100;
+    this.velocityX = 0;
+    this.velocityY = 0;
+    this.speed = 15;
+    this.acceleration = 0.5;
+    this.deceleration = 0.1;
+  }
+
+  updatePosition() {
+    this.x += this.velocityX;
+    this.y += this.velocityY;
+  }
+
+  setVelocity(velocityX, velocityY) {
+    this.velocityX = velocityX;
+    this.velocityY = velocityY;
+  }
+
+  accelerate(accelerationX, accelerationY) {
+    this.velocityX += accelerationX;
+    this.velocityY += accelerationY;
+  }
+
+  decelerate(deceleration) {
+    if (this.velocityX > 0) {
+      this.velocityX = Math.max(this.velocityX - deceleration, 0);
+    } else if (this.velocityX < 0) {
+      this.velocityX = Math.min(this.velocityX + deceleration, 0);
+    }
+
+    if (this.velocityY > 0) {
+      this.velocityY = Math.max(this.velocityY - deceleration, 0);
+    } else if (this.velocityY < 0) {
+      this.velocityY = Math.min(this.velocityY + deceleration, 0);
+    }
   }
 }
 
 let tree = new RBush();
 let playerList = {};
 
-let tiles = world.generateTiles()
+let tiles = world.generateTiles();
+tree.load(tiles);
 
-tree.load(tiles)
-
-
-setInterval(function() {
+setInterval(() => {
   for (const id in playerList) {
-    let player = playerList[id];
+    const player = playerList[id];
+    updatePlayerMovement(player);
+    player.updatePosition();
+    handleCollision(player);
+  }
 
-    //movement
-    if (player.w === true) {
-      player.w = false;
-      player.y -= 5;
-    }
-    if (player.a === true) {
-      player.a = false;
-      player.x -= 5;
-    }
-    if (player.s === true) {
-      player.s = false;
-      player.y += 5;
-    }
-    if (player.d === true) {
-      player.d = false;
-      player.x += 5;
-    }
+  const playerTickList = getPlayerTickList(playerList);
+  io.emit('tick', playerTickList);
+}, 1000 / 64);
 
-    //collision
-    let playerCircle = new SAT.Circle(new SAT.Vector(player.x, player.y), 40);
+function updatePlayerMovement(player) {
+  let accelerationX = 0;
+  let accelerationY = 0;
 
-    let results = tree.search({
-      minX: player.x - 50,
-      minY: player.y - 50,
-      maxX: player.x + 50,
-      maxY: player.y + 50
-    });
+  if (player.w) {
+    accelerationY -= player.acceleration;
+  }
+  if (player.a) {
+    accelerationX -= player.acceleration;
+  }
+  if (player.s) {
+    accelerationY += player.acceleration;
+  }
+  if (player.d) {
+    accelerationX += player.acceleration;
+  }
 
-    if (results.length > 0) {
-      for (let i = 0; i < results.length; i++) {
-        let response = new SAT.Response();
-        let collided = SAT.testCirclePolygon(playerCircle, results[i].sat, response)
-        if (collided) {
-          let overlapV = response.overlapV.clone().scale(-1.5);
-          player.x += overlapV.x;
-          player.y += overlapV.y;
-        }
+  // Stop the player if no movement keys are pressed
+  if (!player.w && !player.a && !player.s && !player.d) {
+    player.decelerate(player.deceleration);
+  } else {
+    player.accelerate(accelerationX, accelerationY);
+  }
+
+  // Limit the player's velocity
+  player.velocityX = Math.max(-player.speed, Math.min(player.velocityX, player.speed));
+  player.velocityY = Math.max(-player.speed, Math.min(player.velocityY, player.speed));
+}
+
+function handleCollision(player) {
+  const playerCircle = new SAT.Circle(new SAT.Vector(player.x, player.y), 40);
+  const results = tree.search({
+    minX: player.x - 50,
+    minY: player.y - 50,
+    maxX: player.x + 50,
+    maxY: player.y + 50,
+  });
+
+  if (results.length > 0) {
+    for (const result of results) {
+      if (result.type === 'tile') {
+        handleTileCollision(player, playerCircle, result);
+      } else if (result.type === 'bullet') {
+        handleBulletCollision(player, playerCircle, result);
       }
     }
   }
-  io.emit('tick', playerList)
-}, 1000 / 64);
+}
+
+function handleTileCollision(player, playerCircle, result) {
+  const response = new SAT.Response();
+  const collided = SAT.testCirclePolygon(playerCircle, result.sat, response);
+  if (collided) {
+    const overlapV = response.overlapV.clone().scale(-1.5);
+    player.velocityX += overlapV.x;
+    player.velocityY += overlapV.y;
+    player.x += overlapV.x / 2;
+    player.y += overlapV.y / 2;
+  }
+}
+
+function handleBulletCollision(player, playerCircle, result) {
+  const response = new SAT.Response();
+  const collided = SAT.pointInCircle(new SAT.Vector(result.x, result.y), playerCircle, response);
+  if (collided) {
+    tree.remove(result);
+    player.hp -= 5;
+  }
+}
+
+function getPlayerTickList(playerList) {
+  const playerTickList = {};
+  for (const id in playerList) {
+    const player = playerList[id];
+    playerTickList[id] = {
+      x: player.x,
+      y: player.y,
+      obj: player.sat,
+      hp: player.hp,
+    };
+  }
+  return playerTickList;
+}
 
 io.on('connection', (socket) => {
-  let player = new Player(50 + Math.random() * ((200 * 80) - 50), 50 + Math.random() * ((200 * 80) - 50))
+  const player = new Player(50 + Math.random() * ((200 * 80) - 50), 50 + Math.random() * ((200 * 80) - 50));
   playerList[socket.id] = player;
-  socket.emit('id', socket.id)
-  socket.on('w', () => {
-    player.w = true;
-  });
-  socket.on('a', () => {
-    player.a = true;
-  });
-  socket.on('s', () => {
-    player.s = true;
-  });
-  socket.on('d', () => {
-    player.d = true;
-  });
+  socket.emit('id', socket.id);
+
+  const events = ['w', 'a', 's', 'd', 'up', 'down', 'left', 'right'];
+  for (const event of events) {
+    socket.on(event, (state) => {
+      player[event] = state;
+    });
+  }
+
   console.log('MEOWWWWW');
-  socket.on('disconnect', function() {
-    console.log('grrr')
+  socket.on('disconnect', () => {
+    console.log('grrr');
     delete playerList[socket.id];
   });
-  socket.on('remove', function(item, id) {
+  socket.on('remove', (item, id) => {
     io.emit('remove', id);
-    tree.remove(item, (a, b) => {
-      return a.minX === b.minX && a.minY === b.minY;
-    });
+    tree.remove(item, (a, b) => a.minX === b.minX && a.minY === b.minY);
     delete tiles[id];
   });
 });
 
-let link = app.get('/map', function(req, res) {
-  res.send(tiles)
-})
-
-app.get('/', function(req, res) {
-  res.sendfile('index.html');
+app.get('/map', (req, res) => {
+  res.send(tiles);
 });
 
-server.listen(port, function() {
+app.get('/', (req, res) => {
+  res.sendFile('index.html');
+});
+
+server.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });

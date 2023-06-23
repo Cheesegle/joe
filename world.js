@@ -39,19 +39,23 @@ function generateTiles() {
             tileHeight = 160;
           }
           tiles.push({
+            type: 'tile',
             sat: new SAT.Box(new SAT.Vector(x * 80, y * 80), tileWidth, tileHeight).toPolygon(),
             minX: x * 80,
             minY: y * 80,
             maxX: (x * 80) + tileWidth,
-            maxY: (y * 80) + tileHeight
+            maxY: (y * 80) + tileHeight,
+            hp: tileWidth + tileHeight
           });
         } else {
           tiles.push({
+            type: 'tile',
             sat: new SAT.Box(new SAT.Vector(x * 80, y * 80), 80, 80).toPolygon(),
             minX: x * 80,
             minY: y * 80,
             maxX: (x * 80) + 80,
-            maxY: (y * 80) + 80
+            maxY: (y * 80) + 80,
+            hp: 80
           });
         }
       }

@@ -40,9 +40,9 @@ socket.on('id', (id) => {
   playerId = id;
 });
 
-socket.on('tick', (tick) => {
+socket.on('tick', (playerTickList) => {
   playerListOld = playerList;
-  playerList = tick;
+  playerList = playerTickList;
   lastTick = performance.now()
 });
 
@@ -81,20 +81,21 @@ setInterval(function() {
 }, 1000);
 
 function draw() {
-  if (keyState[87] === true) {
-    socket.emit('w')
-  }
 
-  if (keyState[65] === true) {
-    socket.emit('a')
-  }
+  const keyEvents = {
+    87: 'w',
+    65: 'a',
+    83: 's',
+    68: 'd',
+    37: 'up',
+    38: 'down',
+    39: 'left',
+    40: 'right'
+  };
 
-  if (keyState[83] === true) {
-    socket.emit('s')
-  }
-
-  if (keyState[68] === true) {
-    socket.emit('d')
+  for (const keyCode in keyEvents) {
+    const eventName = keyEvents[keyCode];
+    socket.emit(eventName, keyState[keyCode]);
   }
 
   background(0);
