@@ -19,7 +19,6 @@ window.addEventListener("contextmenu", (e) => {
   e.preventDefault()
 });
 
-
 let map = [];
 
 fetch('/map').then(function(response) {
