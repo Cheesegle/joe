@@ -59,15 +59,22 @@ function setup() {
 }
 
 function playerLerp(id) {
-  let player = playerList[id];
-  let playerOld = playerListOld[id];
-  let tickProgress = (performance.now() - lastTick) / (1000 / 64);
-  let lerpX = lerp(playerOld.x, player.x, tickProgress);
-  let lerpY = lerp(playerOld.y, player.y, tickProgress);
-  return {
-    x: lerpX,
-    y: lerpY
-  };
+  if (playerListOld[id]) {
+    let player = playerList[id];
+    let playerOld = playerListOld[id];
+    let tickProgress = (performance.now() - lastTick) / (1000 / 64);
+    let lerpX = lerp(playerOld.x, player.x, tickProgress);
+    let lerpY = lerp(playerOld.y, player.y, tickProgress);
+    return {
+      x: lerpX,
+      y: lerpY
+    };
+  } else {
+    return {
+      x: 0,
+      y: 0
+    };
+  }
 }
 
 function updateFPS() {
@@ -96,17 +103,13 @@ function renderTile(tile, highlight) {
   pop()
 }
 
-function renderHealthBar(player) {
-  const {
-    x,
-    y,
-    hp,
-    maxHp
-  } = player;
+function renderHealthBar(player, id) {
+  let lerpPos = playerLerp(id);
+
   const barWidth = 80;
   const barHeight = 10;
-  const barX = x - barWidth / 2;
-  const barY = y + 50;
+  const barX = lerpPos.x - barWidth / 2;
+  const barY = lerpPos.y + 50;
 
   // Draw the background of the health bar
   push();
@@ -115,7 +118,7 @@ function renderHealthBar(player) {
   rect(barX, barY, barWidth, barHeight);
 
   // Draw the actual health amount
-  const healthPercentage = hp / maxHp;
+  const healthPercentage = player.hp / player.maxHp;
   const healthWidth = barWidth * healthPercentage;
   const healthColor = color(0, 255, 0);
   fill(healthColor);
@@ -160,32 +163,29 @@ function draw() {
     push();
     background(0);
 
-    if (playerListOld[playerId]) {
-      let lerpPos = playerLerp(playerId);
-      targetCameraX = (-lerpPos.x * gameScale) + (windowWidth / 2) + mouseXOffset;
-      targetCameraY = (-lerpPos.y * gameScale) + (windowHeight / 2) + mouseYOffset;
-      cameraX = lerp(cameraX, targetCameraX, cameraLerpAmount);
-      cameraY = lerp(cameraY, targetCameraY, cameraLerpAmount);
-      translate(cameraX, cameraY);
-    }
+
+    let lerpPos = playerLerp(playerId);
+    targetCameraX = (-lerpPos.x * gameScale) + (windowWidth / 2) + mouseXOffset;
+    targetCameraY = (-lerpPos.y * gameScale) + (windowHeight / 2) + mouseYOffset;
+    cameraX = lerp(cameraX, targetCameraX, cameraLerpAmount);
+    cameraY = lerp(cameraY, targetCameraY, cameraLerpAmount);
+    translate(cameraX, cameraY);
 
     scale(gameScale);
 
     for (const id in playerList) {
-      if (playerListOld[id]) {
-        let lerpPos = playerLerp(id);
+      let lerpPos = playerLerp(id);
+      push();
+      fill('green');
+      circle(lerpPos.x, lerpPos.y, 80);
+      pop();
+      for (const bullet of playerList[id].bullets) {
         push();
-        fill('green');
-        circle(lerpPos.x, lerpPos.y, 80);
+        fill('red');
+        circle(bullet.x, bullet.y, bullet.radius);
         pop();
-        for (const bullet of playerList[id].bullets) {
-          push();
-          fill('red');
-          circle(bullet.x, bullet.y, bullet.radius);
-          pop();
-        }
-        renderHealthBar(playerList[id]); // Render health bar for each player
       }
+      renderHealthBar(playerList[id], id); // Render health bar for each player
     }
 
     let highlight = null;
