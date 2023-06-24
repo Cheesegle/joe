@@ -11,13 +11,13 @@ var fps = 0;
 
 var mouseXOffset = 0;
 var mouseYOffset = 0;
-var edgeOffset = innerHeight / 4; // Adjust this value to change the distance from the edge for triggering the translation
+var edgeOffset = innerHeight / 3; // Adjust this value to change the distance from the edge for triggering the translation
 
 var cameraX = 0;
 var cameraY = 0;
 var targetCameraX = 0;
 var targetCameraY = 0;
-var cameraLerpAmount = 0.1; // Adjust this value to change the smoothness of camera movement
+var cameraLerpAmount = 0.05; // Adjust this value to change the smoothness of camera movement
 
 const getFPS = () =>
   new Promise(resolve =>
@@ -157,8 +157,8 @@ function draw() {
         let tileMaxY = (tile.maxY - playerList[playerId].y) * gameScale + mouseYOffset;
 
         if (
-          tileMaxX > -windowWidth / 2 && tileMinX < windowWidth / 2 &&
-          tileMaxY > -windowHeight / 2 && tileMinY < windowHeight / 2
+          tileMaxX + 160 > -windowWidth / 2 && tileMinX - 160< windowWidth / 2 &&
+          tileMaxY + 160 > -windowHeight / 2 && tileMinY - 160 < windowHeight / 2
         ) {
           if (
             mouseX - windowWidth / 2 > tileMinX &&
@@ -189,7 +189,7 @@ function mouseWheel(event) {
   const zoomDelta = event.delta * 3;
   const prevZoom = zoom;
   zoom += zoomDelta;
-  zoom = constrain(zoom, 3000, 16000);
+  zoom = constrain(zoom, 3000, 10000);
   gameScale = (window.innerWidth + window.innerHeight) / zoom;
 
   const zoomFactor = zoom / prevZoom;
@@ -207,7 +207,7 @@ function mouseWheel(event) {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   gameScale = (innerWidth + innerHeight) / zoom;
-  edgeOffset = innerHeight / 4;
+  edgeOffset = innerHeight / 3;
 }
 
 function mouseMoved() {
