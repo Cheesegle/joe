@@ -8,6 +8,7 @@ var zoom = 3000;
 var gameScale = (innerWidth + innerHeight) / zoom;
 var playerId = "";
 var fps = 0;
+var spawned = false;
 
 var mouseXOffset = 0;
 var mouseYOffset = 0;
@@ -96,94 +97,110 @@ function renderTile(tile, highlight) {
 }
 
 function draw() {
-  const keyEvents = {
-    87: 'w',
-    65: 'a',
-    83: 's',
-    68: 'd',
-    38: 'up',
-    40: 'down',
-    37: 'left',
-    39: 'right'
-  };
-
-  for (const keyCode in keyEvents) {
-    const eventName = keyEvents[keyCode];
-    socket.emit(eventName, keyState[keyCode]);
-  }
-
-  fill(255);
-  stroke(0);
-
-  push();
   background(0);
+  if (spawned === false) {
+    push()
+    fill(255);
+    stroke(0);
+    textSize(innerWidth / 30);
+    textAlign(CENTER);
+    text("CLICK TO SPAWN !!!", innerWidth / 2, innerHeight / 2);
+    pop()
+    if (mouseIsPressed === true) {
+      socket.emit('spawn');
+    }
+  } else {
 
-  if (playerListOld[playerId]) {
-    let lerpPos = playerLerp(playerId);
-    targetCameraX = (-lerpPos.x * gameScale) + (windowWidth / 2) + mouseXOffset;
-    targetCameraY = (-lerpPos.y * gameScale) + (windowHeight / 2) + mouseYOffset;
-    cameraX = lerp(cameraX, targetCameraX, cameraLerpAmount);
-    cameraY = lerp(cameraY, targetCameraY, cameraLerpAmount);
-    translate(cameraX, cameraY);
-  }
+    const keyEvents = {
+      87: 'w',
+      65: 'a',
+      83: 's',
+      68: 'd',
+      38: 'up',
+      40: 'down',
+      37: 'left',
+      39: 'right'
+    };
 
-  scale(gameScale);
+    for (const keyCode in keyEvents) {
+      const eventName = keyEvents[keyCode];
+      socket.emit(eventName, keyState[keyCode]);
+    }
 
-  for (const id in playerList) {
-    if (playerListOld[id]) {
-      let lerpPos = playerLerp(id);
-      push();
-      fill('green');
-      circle(lerpPos.x, lerpPos.y, 80);
-      pop();
-      for (const bullet of playerList[id].bullets) {
+    fill(255);
+    stroke(0);
+
+    push();
+    background(0);
+
+    if (playerListOld[playerId]) {
+      let lerpPos = playerLerp(playerId);
+      targetCameraX = (-lerpPos.x * gameScale) + (windowWidth / 2) + mouseXOffset;
+      targetCameraY = (-lerpPos.y * gameScale) + (windowHeight / 2) + mouseYOffset;
+      cameraX = lerp(cameraX, targetCameraX, cameraLerpAmount);
+      cameraY = lerp(cameraY, targetCameraY, cameraLerpAmount);
+      translate(cameraX, cameraY);
+    }
+
+    scale(gameScale);
+
+    for (const id in playerList) {
+      if (playerListOld[id]) {
+        let lerpPos = playerLerp(id);
         push();
-        fill('red');
-        circle(bullet.x, bullet.y, bullet.radius);
+        fill('green');
+        circle(lerpPos.x, lerpPos.y, 80);
         pop();
+        for (const bullet of playerList[id].bullets) {
+          push();
+          fill('red');
+          circle(bullet.x, bullet.y, bullet.radius);
+          pop();
+        }
       }
     }
-  }
 
-  let highlight = null;
+    let highlight = null;
 
-  if (playerList[playerId]) {
-    for (const id in mapData) {
-      if (mapData[id]) {
-        let tile = mapData[id];
-        let tileMinX = (tile.minX - playerList[playerId].x) * gameScale + mouseXOffset;
-        let tileMaxX = (tile.maxX - playerList[playerId].x) * gameScale + mouseXOffset;
-        let tileMinY = (tile.minY - playerList[playerId].y) * gameScale + mouseYOffset;
-        let tileMaxY = (tile.maxY - playerList[playerId].y) * gameScale + mouseYOffset;
+    if (playerList[playerId]) {
+      for (const id in mapData) {
+        if (mapData[id]) {
+          let tile = mapData[id];
+          let tileMinX = (tile.minX - playerList[playerId].x) * gameScale + mouseXOffset;
+          let tileMaxX = (tile.maxX - playerList[playerId].x) * gameScale + mouseXOffset;
+          let tileMinY = (tile.minY - playerList[playerId].y) * gameScale + mouseYOffset;
+          let tileMaxY = (tile.maxY - playerList[playerId].y) * gameScale + mouseYOffset;
 
-        if (
-          tileMaxX + 160 > -windowWidth / 2 && tileMinX - 160< windowWidth / 2 &&
-          tileMaxY + 160 > -windowHeight / 2 && tileMinY - 160 < windowHeight / 2
-        ) {
           if (
-            mouseX - windowWidth / 2 > tileMinX &&
-            mouseY - windowHeight / 2 > tileMinY &&
-            mouseX - windowWidth / 2 < tileMaxX &&
-            mouseY - windowHeight / 2 < tileMaxY
+            tileMaxX + 160 > -windowWidth / 2 && tileMinX - 160 < windowWidth / 2 &&
+            tileMaxY + 160 > -windowHeight / 2 && tileMinY - 160 < windowHeight / 2
           ) {
-            if (mouseIsPressed === true) {
-              socket.emit('click', tile, id);
+            if (
+              mouseX - windowWidth / 2 > tileMinX &&
+              mouseY - windowHeight / 2 > tileMinY &&
+              mouseX - windowWidth / 2 < tileMaxX &&
+              mouseY - windowHeight / 2 < tileMaxY
+            ) {
+              if (mouseIsPressed === true) {
+                socket.emit('click', tile, id);
+              }
+              highlight = tile;
+            } else {
+              renderTile(tile);
             }
-            highlight = tile;
-          } else {
-            renderTile(tile);
           }
         }
       }
     }
-  }
 
-  if (highlight) {
-    renderTile(highlight, true);
+    if (highlight) {
+      renderTile(highlight, true);
+    }
+    pop();
+    text("FPS: " + fps.toFixed(2), 10, height - 10);
   }
-  pop();
-  text("FPS: " + fps.toFixed(2), 10, height - 10);
 }
+
 
 function mouseWheel(event) {
   const zoomDelta = event.delta * 3;
@@ -232,8 +249,14 @@ function mouseMoved() {
 window.addEventListener('keydown', handleKeyDown, true);
 window.addEventListener('keyup', handleKeyUp, true);
 window.addEventListener('contextmenu', handleContextMenu);
-socket.on('id', (id) => {
+socket.on('spawn', (id) => {
+  spawned = true;
   playerId = id;
+});
+socket.on('death', (id) => {
+  if (id === playerId) {
+    spawned = false;
+  }
 });
 socket.on('tick', (playerTickList) => {
   playerListOld = playerList;

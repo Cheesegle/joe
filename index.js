@@ -11,7 +11,7 @@ const port = process.env.PORT || 8080;
 app.use(express.static('public'));
 
 
-mapSize = 20;
+mapSize = 50;
 
 class Bullet {
   constructor(x, y, velocityX, velocityY) {
@@ -34,9 +34,9 @@ class Bullet {
 }
 
 class Player {
-  constructor(x, y) {
-    this.x = 50 + (Math.random() * ((mapSize * 80) - 50));
-    this.y = 50 + (Math.random() * ((mapSize * 80) - 50));
+  constructor(id) {
+    this.x = 260 + (Math.random() * ((mapSize * 80) - 260));
+    this.y = 260 + (Math.random() * ((mapSize * 80) - 260));
     this.hp = 100;
     this.velocityX = 0;
     this.velocityY = 0;
@@ -45,6 +45,11 @@ class Player {
     this.deceleration = 0.5;
     this.bullets = [];
     this.bounce = 1.5;
+    this.minX = this.x;
+    this.minY = this.y;
+    this.maxX = this.x + 80;
+    this.maxY = this.y + 80;
+    this.id = id;
   }
 
   shootInDirection(directionX, directionY) {
@@ -65,6 +70,10 @@ class Player {
   updatePosition() {
     this.x += this.velocityX;
     this.y += this.velocityY;
+    this.minX = this.x;
+    this.minY = this.y;
+    this.maxX = this.x + 80;
+    this.maxY = this.y + 80;
   }
 
   setVelocity(velocityX, velocityY) {
@@ -193,10 +202,10 @@ function handleBulletCollision(player, bullet) {
 
   // Check collision with tiles
   const results = tileTree.search({
-    minX: bullet.x - bullet.radius,
-    minY: bullet.y - bullet.radius,
-    maxX: bullet.x + bullet.radius,
-    maxY: bullet.y + bullet.radius,
+    minX: bullet.x - (bullet.radius + 5),
+    minY: bullet.y - (bullet.radius + 5),
+    maxX: bullet.x + (bullet.radius + 5),
+    maxY: bullet.y + (bullet.radius + 5),
   });
 
   if (results.length > 0) {
@@ -232,14 +241,14 @@ function handleBulletCollision(player, bullet) {
   // Check collision with players
   const playerCircle = new SAT.Circle(new SAT.Vector(player.x, player.y), 40);
   const potentialCollisions = playerTree.search({
-    minX: bullet.x - bullet.radius,
-    minY: bullet.y - bullet.radius,
-    maxX: bullet.x + bullet.radius,
-    maxY: bullet.y + bullet.radius,
+    minX: bullet.x - (bullet.radius + 5),
+    minY: bullet.y - (bullet.radius + 5),
+    maxX: bullet.x + (bullet.radius + 5),
+    maxY: bullet.y + (bullet.radius + 5),
   });
 
   for (const result of potentialCollisions) {
-    if (result.id !== player.id) {
+    if (result.id !== player.id && playerList[result.id]) {
       const otherPlayer = playerList[result.id];
       const otherPlayerCircle = new SAT.Circle(new SAT.Vector(otherPlayer.x, otherPlayer.y), 40);
       const response = new SAT.Response();
@@ -253,7 +262,8 @@ function handleBulletCollision(player, bullet) {
         otherPlayer.hp -= bullet.playerDamage;
         // Check if the player's HP is <= 0 and remove it if necessary
         if (otherPlayer.hp <= 0) {
-          playerList[result.id] = new Player();
+          delete playerList[otherPlayer.id];
+          io.emit('death', otherPlayer.id)
         }
         break; // Exit the loop since the bullet can collide with only one player
       }
@@ -280,7 +290,6 @@ function getPlayerTickList(playerList) {
     playerTickList[id] = {
       x: player.x,
       y: player.y,
-      obj: player.sat,
       hp: player.hp,
       bullets: player.bullets
     };
@@ -289,10 +298,7 @@ function getPlayerTickList(playerList) {
 }
 
 io.on('connection', (socket) => {
-  const player = new Player();
-  playerList[socket.id] = player;
-  playerTree.insert(player);
-  socket.emit('id', socket.id);
+  let player = {};
 
   const events = ['w', 'a', 's', 'd', 'up', 'down', 'left', 'right'];
   for (const event of events) {
@@ -308,6 +314,15 @@ io.on('connection', (socket) => {
   });
   socket.on('click', (item, id) => {
     //on tile click
+  });
+
+  socket.on('spawn', () => {
+    if (!playerList[socket.id]) {
+      player = new Player(socket.id);
+      playerList[socket.id] = player;
+      playerTree.insert(player);
+      socket.emit('spawn', socket.id);
+    }
   });
 });
 
