@@ -96,6 +96,33 @@ function renderTile(tile, highlight) {
   pop()
 }
 
+function renderHealthBar(player) {
+  const {
+    x,
+    y,
+    hp,
+    maxHp
+  } = player;
+  const barWidth = 80;
+  const barHeight = 10;
+  const barX = x - barWidth / 2;
+  const barY = y + 50;
+
+  // Draw the background of the health bar
+  push();
+  noStroke();
+  fill(100);
+  rect(barX, barY, barWidth, barHeight);
+
+  // Draw the actual health amount
+  const healthPercentage = hp / maxHp;
+  const healthWidth = barWidth * healthPercentage;
+  const healthColor = color(0, 255, 0);
+  fill(healthColor);
+  rect(barX, barY, healthWidth, barHeight);
+  pop();
+}
+
 function draw() {
   background(0);
   if (spawned === false) {
@@ -157,6 +184,7 @@ function draw() {
           circle(bullet.x, bullet.y, bullet.radius);
           pop();
         }
+        renderHealthBar(playerList[id]); // Render health bar for each player
       }
     }
 

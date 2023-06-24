@@ -38,6 +38,7 @@ class Player {
     this.x = 260 + (Math.random() * ((mapSize * 80) - 260));
     this.y = 260 + (Math.random() * ((mapSize * 80) - 260));
     this.hp = 100;
+    this.maxHp = 100;
     this.velocityX = 0;
     this.velocityY = 0;
     this.speed = 15;
@@ -291,6 +292,7 @@ function getPlayerTickList(playerList) {
       x: player.x,
       y: player.y,
       hp: player.hp,
+      maxHp: player.maxHp,
       bullets: player.bullets
     };
   }
