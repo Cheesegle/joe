@@ -7,11 +7,58 @@ const scale = 30;
 
 noise.SetNoiseType(fastnoise.Cubic);
 
-function generateTiles() {
+function generateTiles(mapSize) {
   let tiles = [];
   let skip = [];
-  for (let y = 0; y < 200; y++) {
-    for (let x = 0; x < 200; x++) {
+  tiles.push({
+    type: 'border',
+    sat: new SAT.Box(new SAT.Vector(0, 0), mapSize * 80, 80).toPolygon(),
+    minX: 0,
+    minY: 0,
+    maxX: mapSize * 80,
+    maxY: 80,
+    hp: mapSize * 80,
+    id: tiles.length
+  });
+
+  // Generate border tiles for the bottom side
+  tiles.push({
+    type: 'border',
+    sat: new SAT.Box(new SAT.Vector(0, (mapSize - 1) * 80), mapSize * 80, 80).toPolygon(),
+    minX: 0,
+    minY: (mapSize - 1) * 80,
+    maxX: mapSize * 80,
+    maxY: mapSize * 80,
+    hp: mapSize * 80,
+    id: tiles.length
+  });
+
+  // Generate border tiles for the left side
+  tiles.push({
+    type: 'border',
+    sat: new SAT.Box(new SAT.Vector(0, 80), 80, (mapSize - 2) * 80).toPolygon(),
+    minX: 0,
+    minY: 80,
+    maxX: 80,
+    maxY: mapSize * 80 - 80,
+    hp: (mapSize - 2) * 80,
+    id: tiles.length
+  });
+
+  // Generate border tiles for the right side
+  tiles.push({
+    type: 'border',
+    sat: new SAT.Box(new SAT.Vector((mapSize - 1) * 80, 80), 80, (mapSize - 2) * 80).toPolygon(),
+    minX: (mapSize - 1) * 80,
+    minY: 80,
+    maxX: mapSize * 80,
+    maxY: mapSize * 80 - 80,
+    hp: (mapSize - 2) * 80,
+    id: tiles.length
+  });
+
+  for (let y = 1; y < mapSize - 1; y++) {
+    for (let x = 1; x < mapSize - 1; x++) {
       if ((noise.GetNoise(x * scale, y * scale) > 0) && !skip.includes(String(x) + String(y))) {
         if (
           (noise.GetNoise((x + 1) * scale, y * scale) > 0) && !skip.includes(String(x + 1) + String(y)) &&
@@ -38,8 +85,12 @@ function generateTiles() {
             tileWidth = 160;
             tileHeight = 160;
           }
+          let tileType = 'breakable'
+          if(Math.random() < 0.5){
+            tileType = 'rock'
+          }
           tiles.push({
-            type: 'tile',
+            type: tileType,
             sat: new SAT.Box(new SAT.Vector(x * 80, y * 80), tileWidth, tileHeight).toPolygon(),
             minX: x * 80,
             minY: y * 80,
@@ -50,7 +101,7 @@ function generateTiles() {
           });
         } else {
           tiles.push({
-            type: 'tile',
+            type: 'breakable',
             sat: new SAT.Box(new SAT.Vector(x * 80, y * 80), 80, 80).toPolygon(),
             minX: x * 80,
             minY: y * 80,

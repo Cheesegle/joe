@@ -10,6 +10,9 @@ const port = process.env.PORT || 8080;
 
 app.use(express.static('public'));
 
+
+mapSize = 200;
+
 class Bullet {
   constructor(x, y, velocityX, velocityY) {
     this.x = x;
@@ -19,6 +22,9 @@ class Bullet {
     this.speed = 20; // Adjust bullet speed as needed
     this.radius = 15; // Adjust bullet size as needed
     this.range = 100;
+    this.playerDamage = 5;
+    this.tileDamage = 10;
+    this.bounce = false;
   }
 
   updatePosition() {
@@ -29,15 +35,16 @@ class Bullet {
 
 class Player {
   constructor(x, y) {
-    this.x = x;
-    this.y = y;
+    this.x = 50 + (Math.random() * ((mapSize * 80) - 50));
+    this.y = 50 + (Math.random() * ((mapSize * 80) - 50));
     this.hp = 100;
     this.velocityX = 0;
     this.velocityY = 0;
     this.speed = 15;
-    this.acceleration = 0.5;
-    this.deceleration = 0.1;
+    this.acceleration = 1;
+    this.deceleration = 0.5;
     this.bullets = [];
+    this.bounce = 1.5;
   }
 
   shootInDirection(directionX, directionY) {
@@ -85,18 +92,21 @@ class Player {
   }
 }
 
-let tree = new RBush();
+let tileTree = new RBush();
+let playerTree = new RBush();
 let playerList = {};
 
-let tiles = world.generateTiles();
-tree.load(tiles);
+let tiles = world.generateTiles(mapSize);
+tileTree.load(tiles);
 
 setInterval(() => {
   for (const id in playerList) {
     const player = playerList[id];
+    playerTree.remove(player);
+    player.updatePosition();
+    playerTree.insert(player);
     updatePlayerShooting(player);
     updatePlayerMovement(player);
-    player.updatePosition();
     handleCollision(player);
     updateBulletPositions(player);
   }
@@ -161,7 +171,7 @@ function updatePlayerMovement(player) {
 
 function handleCollision(player) {
   const playerCircle = new SAT.Circle(new SAT.Vector(player.x, player.y), 40);
-  const results = tree.search({
+  const results = tileTree.search({
     minX: player.x - 50,
     minY: player.y - 50,
     maxX: player.x + 50,
@@ -170,9 +180,7 @@ function handleCollision(player) {
 
   if (results.length > 0) {
     for (const result of results) {
-      if (result.type === 'tile') {
-        handleTileCollision(player, playerCircle, result);
-      }
+      handleTileCollision(player, playerCircle, result);
     }
   }
   for (const bullet of player.bullets) {
@@ -184,34 +192,70 @@ function handleBulletCollision(player, bullet) {
   const bulletCircle = new SAT.Circle(new SAT.Vector(bullet.x, bullet.y), bullet.radius);
 
   // Check collision with tiles
-  const results = tree.search({
-    minX: bullet.x - bullet.radius + 5,
-    minY: bullet.y - bullet.radius + 5,
-    maxX: bullet.x + bullet.radius + 5,
-    maxY: bullet.y + bullet.radius + 5,
+  const results = tileTree.search({
+    minX: bullet.x - bullet.radius,
+    minY: bullet.y - bullet.radius,
+    maxX: bullet.x + bullet.radius,
+    maxY: bullet.y + bullet.radius,
   });
 
   if (results.length > 0) {
     for (const result of results) {
-      if (result.type === 'tile') {
-        const response = new SAT.Response();
-        const collided = SAT.testCirclePolygon(bulletCircle, result.sat, response);
-        if (collided) {
-          // Remove the bullet
-          const bulletIndex = player.bullets.indexOf(bullet);
-          if (bulletIndex !== -1) {
-            player.bullets.splice(bulletIndex, 1);
-          }
-          // Damage the tile for 5 hp
-          result.hp -= 5;
+      const response = new SAT.Response();
+      const collided = SAT.testCirclePolygon(bulletCircle, result.sat, response);
+      if (collided) {
+        // Remove the bullet
+        const bulletIndex = player.bullets.indexOf(bullet);
+        if (bullet.bounce === true) {
+          const overlapV = response.overlapV.clone().scale(-1.5);
+          bullet.velocityX += overlapV.x;
+          bullet.velocityY += overlapV.y;
+          bullet.velocityX = Math.max(-1, Math.min(bullet.velocityX, 1));
+          bullet.velocityY = Math.max(-1, Math.min(bullet.velocityY, 1));
+        } else if (bulletIndex !== -1) {
+          player.bullets.splice(bulletIndex, 1);
+        }
+        if (result.type === 'breakable') {
+          result.hp -= bullet.tileDamage;
           io.emit('tileupdate', result.id, result.hp);
           // Check if the tile's hp is <= 0 and remove it if necessary
           if (result.hp <= 0) {
             io.emit('remove', result.id);
-            tree.remove(result, (a, b) => a.minX === b.minX && a.minY === b.minY);
+            tileTree.remove(result, (a, b) => a.minX === b.minX && a.minY === b.minY);
             delete tiles[result.id];
           }
         }
+      }
+    }
+  }
+
+  // Check collision with players
+  const playerCircle = new SAT.Circle(new SAT.Vector(player.x, player.y), 40);
+  const potentialCollisions = playerTree.search({
+    minX: bullet.x - bullet.radius,
+    minY: bullet.y - bullet.radius,
+    maxX: bullet.x + bullet.radius,
+    maxY: bullet.y + bullet.radius,
+  });
+
+  for (const result of potentialCollisions) {
+    if (result.id !== player.id) {
+      const otherPlayer = playerList[result.id];
+      const otherPlayerCircle = new SAT.Circle(new SAT.Vector(otherPlayer.x, otherPlayer.y), 40);
+      const response = new SAT.Response();
+      const collided = SAT.testCircleCircle(bulletCircle, otherPlayerCircle, response);
+      if (collided) {
+        // Remove the bullet
+        const bulletIndex = player.bullets.indexOf(bullet);
+        if (bulletIndex !== -1) {
+          player.bullets.splice(bulletIndex, 1);
+        }
+        otherPlayer.hp -= bullet.playerDamage;
+        // Check if the player's HP is <= 0 and remove it if necessary
+        if (otherPlayer.hp <= 0) {
+          playerList[result.id] = new Player();
+        }
+        break; // Exit the loop since the bullet can collide with only one player
       }
     }
   }
@@ -224,8 +268,8 @@ function handleTileCollision(player, playerCircle, result) {
     const overlapV = response.overlapV.clone().scale(-1.5);
     player.velocityX += overlapV.x;
     player.velocityY += overlapV.y;
-    player.x += overlapV.x / 2;
-    player.y += overlapV.y / 2;
+    player.x += overlapV.x / player.bounce;
+    player.y += overlapV.y / player.bounce;
   }
 }
 
@@ -245,8 +289,9 @@ function getPlayerTickList(playerList) {
 }
 
 io.on('connection', (socket) => {
-  const player = new Player(50 + Math.random() * ((200 * 80) - 50), 50 + Math.random() * ((200 * 80) - 50));
+  const player = new Player();
   playerList[socket.id] = player;
+  playerTree.insert(player);
   socket.emit('id', socket.id);
 
   const events = ['w', 'a', 's', 'd', 'up', 'down', 'left', 'right'];

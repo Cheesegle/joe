@@ -73,6 +73,28 @@ function updateFPS() {
   fps = frameRate();
 }
 
+function renderTile(tile, highlight) {
+  push();
+  strokeWeight(4);
+  if (tile.type === 'breakable') {
+    stroke(156, 39, 176);
+    fill(244, 20, 176, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
+  }
+  if (tile.type === 'rock') {
+    stroke(156, 39, 176);
+    fill(84, 78, 76, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
+  }
+  if (tile.type === 'border') {
+    stroke(0);
+    fill(200);
+  } else if (highlight === true) {
+    strokeWeight(8);
+    stroke(255);
+  }
+  rect(tile.minX, tile.minY, tile.maxX - tile.minX, tile.maxY - tile.minY);
+  pop()
+}
+
 function draw() {
   const keyEvents = {
     87: 'w',
@@ -116,7 +138,7 @@ function draw() {
       pop();
       for (const bullet of playerList[id].bullets) {
         push();
-        fill('green');
+        fill('red');
         circle(bullet.x, bullet.y, bullet.radius);
         pop();
       }
@@ -149,12 +171,7 @@ function draw() {
             }
             highlight = tile;
           } else {
-            push();
-            stroke(156, 39, 176);
-            fill(244, 20, 176, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
-            strokeWeight(4);
-            rect(tile.minX, tile.minY, tile.maxX - tile.minX, tile.maxY - tile.minY);
-            pop();
+            renderTile(tile);
           }
         }
       }
@@ -162,12 +179,7 @@ function draw() {
   }
 
   if (highlight) {
-    push();
-    stroke(255);
-    fill(244, 20, 176, (highlight.hp / (highlight.maxX - highlight.minX + highlight.maxY - highlight.minY) * 255));
-    strokeWeight(8);
-    rect(highlight.minX, highlight.minY, highlight.maxX - highlight.minX, highlight.maxY - highlight.minY);
-    pop();
+    renderTile(highlight, true);
   }
   pop();
   text("FPS: " + fps.toFixed(2), 10, height - 10);
