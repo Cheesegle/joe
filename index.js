@@ -34,7 +34,7 @@ class Bullet {
 }
 
 class Player {
-  constructor(id) {
+  constructor(id, name) {
     this.x = 260 + (Math.random() * ((mapSize * 80) - 260));
     this.y = 260 + (Math.random() * ((mapSize * 80) - 260));
     this.hp = 100;
@@ -51,6 +51,8 @@ class Player {
     this.maxX = this.x + 80;
     this.maxY = this.y + 80;
     this.id = id;
+    this.score = 0;
+    this.name = name;
   }
 
   shootInDirection(directionX, directionY) {
@@ -233,6 +235,7 @@ function handleBulletCollision(player, bullet) {
             io.emit('remove', result.id);
             tileTree.remove(result, (a, b) => a.minX === b.minX && a.minY === b.minY);
             delete tiles[result.id];
+            player.score += 1;
           }
         }
       }
@@ -265,6 +268,7 @@ function handleBulletCollision(player, bullet) {
         if (otherPlayer.hp <= 0) {
           delete playerList[otherPlayer.id];
           io.emit('death', otherPlayer.id)
+          player.score += 100;
         }
         break; // Exit the loop since the bullet can collide with only one player
       }
@@ -293,7 +297,9 @@ function getPlayerTickList(playerList) {
       y: player.y,
       hp: player.hp,
       maxHp: player.maxHp,
-      bullets: player.bullets
+      bullets: player.bullets,
+      score: player.score,
+      name: player.name
     };
   }
   return playerTickList;
@@ -318,9 +324,9 @@ io.on('connection', (socket) => {
     //on tile click
   });
 
-  socket.on('spawn', () => {
+  socket.on('spawn', (name) => {
     if (!playerList[socket.id]) {
-      player = new Player(socket.id);
+      player = new Player(socket.id, name.substring(0, 20));
       playerList[socket.id] = player;
       playerTree.insert(player);
       socket.emit('spawn', socket.id);

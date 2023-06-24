@@ -107,7 +107,7 @@ function renderHealthBar(player, id) {
   let lerpPos = playerLerp(id);
 
   const barWidth = 80;
-  const barHeight = 10;
+  const barHeight = 15;
   const barX = lerpPos.x - barWidth / 2;
   const barY = lerpPos.y + 50;
 
@@ -124,6 +124,71 @@ function renderHealthBar(player, id) {
   fill(healthColor);
   rect(barX, barY, healthWidth, barHeight);
   pop();
+
+  // Render the player's username
+  push();
+  fill(255);
+  textAlign(CENTER);
+  textSize(14);
+
+  const username = player.name;
+  const tagWidth = textWidth(username) + 12;
+  const tagX = lerpPos.x - tagWidth / 2;
+  const tagY = lerpPos.y - 50;
+
+  // Draw the contrasted tag background
+  fill(0, 150); // Adjust the alpha value for transparency
+  rect(tagX, tagY, tagWidth, 20, 8);
+
+  // Draw the username on the tag
+  fill(255);
+  text(username, lerpPos.x, lerpPos.y - 38);
+
+  pop();
+}
+
+function renderLeaderboard() {
+  push();
+  fill(255);
+  textAlign(RIGHT);
+  textSize(18);
+  let yOffset = 20;
+
+  // Sort player scores
+  const sortedPlayers = Object.values(playerList).sort((a, b) => b.score - a.score);
+
+  // Calculate leaderboard height
+  const leaderboardHeight = (sortedPlayers.length + 2) * 20;
+
+  // Draw the contrasted background for the leaderboard
+  push();
+  fill(0, 150); // Adjust the alpha value for transparency
+  rect(width - 200, yOffset - 16, 190, leaderboardHeight, 8);
+  pop();
+
+  // Render leaderboard entries
+  for (let i = 0; i < sortedPlayers.length; i++) {
+    const player = sortedPlayers[i];
+
+    // Render each player's score within the leaderboard rectangle
+    push();
+    fill(255);
+    text(player.name + ": " + player.score, width - 20, yOffset);
+    pop();
+    yOffset += 20;
+  }
+
+  // Render current player's score within the leaderboard rectangle
+  const currentPlayer = playerList[playerId];
+  if (currentPlayer) {
+    push();
+    fill(255);
+    text("... ", width - 20, yOffset);
+    yOffset += 20;
+    text("Your Score: " + currentPlayer.score, width - 20, yOffset);
+    pop();
+  }
+  pop();
 }
 
 function draw() {
@@ -137,7 +202,11 @@ function draw() {
     text("CLICK TO SPAWN !!!", innerWidth / 2, innerHeight / 2);
     pop()
     if (mouseIsPressed === true) {
-      socket.emit('spawn');
+      const name = prompt("Please enter your username:");
+      if (name) {
+        socket.emit('spawn', name); // Emit the name as a parameter with the spawn event
+        spawned = name; // Store the player's name instead of true
+      }
     }
   } else {
 
@@ -173,21 +242,6 @@ function draw() {
 
     scale(gameScale);
 
-    for (const id in playerList) {
-      let lerpPos = playerLerp(id);
-      push();
-      fill('green');
-      circle(lerpPos.x, lerpPos.y, 80);
-      pop();
-      for (const bullet of playerList[id].bullets) {
-        push();
-        fill('red');
-        circle(bullet.x, bullet.y, bullet.radius);
-        pop();
-      }
-      renderHealthBar(playerList[id], id); // Render health bar for each player
-    }
-
     let highlight = null;
 
     if (playerList[playerId]) {
@@ -221,10 +275,26 @@ function draw() {
       }
     }
 
+    for (const id in playerList) {
+      let lerpPos = playerLerp(id);
+      push();
+      fill('green');
+      circle(lerpPos.x, lerpPos.y, 80);
+      pop();
+      for (const bullet of playerList[id].bullets) {
+        push();
+        fill('red');
+        circle(bullet.x, bullet.y, bullet.radius);
+        pop();
+      }
+      renderHealthBar(playerList[id], id); // Render health bar for each player
+    }
+
     if (highlight) {
       renderTile(highlight, true);
     }
     pop();
+    renderLeaderboard();
     text("FPS: " + fps.toFixed(2), 10, height - 10);
   }
 }
