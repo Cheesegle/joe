@@ -85,7 +85,7 @@ function renderTile(tile, highlight) {
     fill(84, 78, 76, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
   }
   if (tile.type === 'border') {
-    stroke(0);
+    stroke(200);
     fill(200);
   } else if (highlight === true) {
     strokeWeight(8);

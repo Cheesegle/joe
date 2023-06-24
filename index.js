@@ -11,7 +11,7 @@ const port = process.env.PORT || 8080;
 app.use(express.static('public'));
 
 
-mapSize = 200;
+mapSize = 20;
 
 class Bullet {
   constructor(x, y, velocityX, velocityY) {
