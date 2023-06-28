@@ -11,7 +11,7 @@ const port = process.env.PORT || 8080;
 app.use(express.static('public'));
 
 
-mapSize = 50;
+mapSize = 200;
 
 class Bullet {
   constructor(x, y, velocityX, velocityY) {
@@ -19,12 +19,12 @@ class Bullet {
     this.y = y;
     this.velocityX = velocityX;
     this.velocityY = velocityY;
-    this.speed = 20; // Adjust bullet speed as needed
-    this.radius = 15; // Adjust bullet size as needed
-    this.range = 100;
-    this.playerDamage = 5;
-    this.tileDamage = 10;
-    this.bounce = false;
+    this.speed = 10; // Adjust bullet speed as needed
+    this.radius = 30; // Adjust bullet size as needed
+    this.range = 200;
+    this.playerDamage = 25;
+    this.tileDamage = 50;
+    this.bounce = true;
   }
 
   updatePosition() {
@@ -41,9 +41,9 @@ class Player {
     this.maxHp = 100;
     this.velocityX = 0;
     this.velocityY = 0;
-    this.speed = 15;
-    this.acceleration = 1;
-    this.deceleration = 0.5;
+    this.speed = 10;
+    this.acceleration = 1.5;
+    this.deceleration = 1;
     this.bullets = [];
     this.bounce = 1.5;
     this.minX = this.x;
@@ -53,6 +53,9 @@ class Player {
     this.id = id;
     this.score = 0;
     this.name = name;
+    this.spread = 10;
+    this.lastShotTime = performance.now();
+    this.shootingInterval = 1000 / 5;
   }
 
   shootInDirection(directionX, directionY) {
@@ -64,8 +67,15 @@ class Player {
       const normalizedDirectionX = directionX / magnitude;
       const normalizedDirectionY = directionY / magnitude;
 
-      // Create a new bullet with the normalized direction as its velocity
-      const bullet = new Bullet(this.x, this.y, normalizedDirectionX, normalizedDirectionY);
+      // Calculate the spread angle in radians
+      const spreadRadians = this.spread * (Math.random() - 0.5) * (Math.PI / 180);
+
+      // Apply random spread to the normalized direction
+      const spreadOffsetX = normalizedDirectionX * Math.cos(spreadRadians) - normalizedDirectionY * Math.sin(spreadRadians);
+      const spreadOffsetY = normalizedDirectionX * Math.sin(spreadRadians) + normalizedDirectionY * Math.cos(spreadRadians);
+
+      // Create a new bullet with the spread direction as its velocity
+      const bullet = new Bullet(this.x, this.y, spreadOffsetX, spreadOffsetY);
       this.bullets.push(bullet);
     }
   }
@@ -143,12 +153,15 @@ function updateBulletPositions(player) {
 function updatePlayerShooting(player) {
   const diagonalMultiplier = Math.sqrt(0.5); // Adjust the multiplier as needed for bullet speed
 
-  if (player.up) {
-    player.shootInDirection(player.left ? -diagonalMultiplier : player.right ? diagonalMultiplier : 0, -1);
-  } else if (player.down) {
-    player.shootInDirection(player.left ? -diagonalMultiplier : player.right ? diagonalMultiplier : 0, 1);
-  } else {
-    player.shootInDirection(player.left ? -1 : player.right ? 1 : 0, 0);
+  if (player.lastShotTime === undefined || performance.now() - player.lastShotTime >= player.shootingInterval) {
+    if (player.up) {
+      player.shootInDirection(player.left ? -diagonalMultiplier : player.right ? diagonalMultiplier : 0, -1);
+    } else if (player.down) {
+      player.shootInDirection(player.left ? -diagonalMultiplier : player.right ? diagonalMultiplier : 0, 1);
+    } else {
+      player.shootInDirection(player.left ? -1 : player.right ? 1 : 0, 0);
+    }
+    player.lastShotTime = performance.now();
   }
 }
 

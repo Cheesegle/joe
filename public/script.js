@@ -59,8 +59,8 @@ function setup() {
 }
 
 function playerLerp(id) {
+  let player = playerList[id];
   if (playerListOld[id]) {
-    let player = playerList[id];
     let playerOld = playerListOld[id];
     let tickProgress = (performance.now() - lastTick) / (1000 / 64);
     let lerpX = lerp(playerOld.x, player.x, tickProgress);
@@ -71,8 +71,8 @@ function playerLerp(id) {
     };
   } else {
     return {
-      x: 0,
-      y: 0
+      x: player.x,
+      y: player.y
     };
   }
 }
@@ -85,11 +85,11 @@ function renderTile(tile, highlight) {
   push();
   strokeWeight(4);
   if (tile.type === 'breakable') {
-    stroke(156, 39, 176);
-    fill(244, 20, 176, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
+    stroke(200);
+    fill(64, 47, 40, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
   }
   if (tile.type === 'rock') {
-    stroke(156, 39, 176);
+    stroke(200);
     fill(84, 78, 76, (tile.hp / (tile.maxX - tile.minX + tile.maxY - tile.minY) * 255));
   }
   if (tile.type === 'border') {
@@ -208,7 +208,7 @@ function draw() {
         spawned = name; // Store the player's name instead of true
       }
     }
-  } else {
+  } else if (playerList[playerId]) {
 
     const keyEvents = {
       87: 'w',

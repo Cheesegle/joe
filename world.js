@@ -2,8 +2,11 @@ const SAT = require('sat');
 const fastnoise = require('fastnoisejs');
 
 const noise = fastnoise.Create(813);
+const noise2 = fastnoise.Create(814);
 
 const scale = 30;
+const rockScale = 2;
+
 
 noise.SetNoiseType(fastnoise.Cubic);
 
@@ -60,6 +63,10 @@ function generateTiles(mapSize) {
   for (let y = 1; y < mapSize - 1; y++) {
     for (let x = 1; x < mapSize - 1; x++) {
       if ((noise.GetNoise(x * scale, y * scale) > 0) && !skip.includes(String(x) + String(y))) {
+        let tileType = 'breakable'
+        if (noise2.GetNoise(x * rockScale, y * rockScale) > 0) {
+          tileType = 'rock'
+        }
         if (
           (noise.GetNoise((x + 1) * scale, y * scale) > 0) && !skip.includes(String(x + 1) + String(y)) &&
           (noise.GetNoise(x * scale, (y + 1) * scale) > 0) && !skip.includes(String(x) + String(y + 1)) &&
@@ -85,10 +92,6 @@ function generateTiles(mapSize) {
             tileWidth = 160;
             tileHeight = 160;
           }
-          let tileType = 'breakable'
-          if(Math.random() < 0.5){
-            tileType = 'rock'
-          }
           tiles.push({
             type: tileType,
             sat: new SAT.Box(new SAT.Vector(x * 80, y * 80), tileWidth, tileHeight).toPolygon(),
@@ -101,7 +104,7 @@ function generateTiles(mapSize) {
           });
         } else {
           tiles.push({
-            type: 'breakable',
+            type: tileType,
             sat: new SAT.Box(new SAT.Vector(x * 80, y * 80), 80, 80).toPolygon(),
             minX: x * 80,
             minY: y * 80,
